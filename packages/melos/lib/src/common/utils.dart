@@ -350,6 +350,12 @@ String listAsPaddedTable(List<List<String>> table, {int paddingSize = 1}) {
   return output.join('\n');
 }
 
+/// Generate a link for display in a terminal.
+/// Similar to `<a href="$url">$text</a>` in HTML.
+String link(Uri url, String text) {
+  return '\u{001B}]8;;$url\u{0007}$text\u{001B}]8;;\u{0007}';
+}
+
 /// Simple check to see if the [Directory] qualifies as a plugin repository.
 bool isWorkspaceDirectory(String directory) =>
     fileExists(melosYamlPathForDirectory(directory));

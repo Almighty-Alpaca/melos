@@ -12,6 +12,7 @@ mixin _VersionMixin on _RunMixin {
     bool updateDependentsConstraints = true,
     bool updateDependentsVersions = true,
     bool gitTag = true,
+    bool gitRelease = true,
     String? message,
     bool force = false,
     // all
@@ -341,6 +342,33 @@ mixin _VersionMixin on _RunMixin {
         'Versioning successful. '
         'Ensure you commit and push your changes (if applicable).',
       );
+    }
+
+    if (gitRelease) {
+      // TODO Support for automatically creating a release,
+      // e.g. when GITHUB_TOKEN is present in CI or using `gh release create`
+      // from GitHub CLI.
+
+      final repository = workspace.config.repository;
+
+      if (repository == null) {
+        logger.trace('No repository configured in melos.yaml to generate a '
+            'release for.');
+      } else if (repository is! SupportsManualRelease) {
+        logger.trace('Hosted repository does not support releases');
+      } else {
+        final pendingPackageReleases = pendingPackageUpdates.map((update) {
+          return link(
+            _gitCreateReleaseUrl(repository, update),
+            update.package.name,
+          );
+        }).join(', ');
+
+        logger.stdout(
+          'Ensure you create a release for each package on GitHub:\n'
+          '$pendingPackageReleases',
+        );
+      }
     }
   }
 
@@ -782,6 +810,29 @@ mixin _VersionMixin on _RunMixin {
         );
       }
     });
+  }
+
+  Uri _gitCreateReleaseUrl(
+    SupportsManualRelease repository,
+    MelosPendingPackageUpdate pendingPackageUpdate,
+  ) {
+    final tag = gitTagForPackageVersion(
+      pendingPackageUpdate.package.name,
+      pendingPackageUpdate.nextVersion.toString(),
+    );
+    final title = gitReleaseTitleForPackageVersion(
+      pendingPackageUpdate.package.name,
+      pendingPackageUpdate.nextVersion.toString(),
+    );
+    final body = pendingPackageUpdate.changelog.markdown;
+    final isPreRelease = pendingPackageUpdate.nextVersion.isPreRelease;
+
+    return repository.releaseUrl(
+      tag: tag,
+      title: title,
+      body: body,
+      isPreRelease: isPreRelease,
+    );
   }
 }
 
