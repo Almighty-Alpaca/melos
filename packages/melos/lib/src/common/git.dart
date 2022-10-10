@@ -313,6 +313,21 @@ Future<String> gitGetCurrentBranchName({
   return (processResult.stdout as String).trim();
 }
 
+/// Returns the current commit hash of the local git repository.
+Future<String> gitGetCurrentCommit( {
+  required String workingDirectory,
+  required MelosLogger logger,
+}) async {
+  final arguments = ['rev-parse', 'HEAD'];
+  final result = await gitExecuteCommand(
+    arguments: arguments,
+    workingDirectory: workingDirectory,
+    logger: logger,
+  );
+
+  return (result.stdout as String).trim();
+}
+
 /// Fetches updates for the default remote in the repository.
 Future<void> gitRemoteUpdate({
   required String workingDirectory,

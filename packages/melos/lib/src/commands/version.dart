@@ -12,7 +12,7 @@ mixin _VersionMixin on _RunMixin {
     bool updateDependentsConstraints = true,
     bool updateDependentsVersions = true,
     bool gitTag = true,
-    bool gitRelease = true,
+    GitRelease gitRelease = GitRelease.useDefault,
     String? message,
     bool force = false,
     // all
@@ -344,31 +344,31 @@ mixin _VersionMixin on _RunMixin {
       );
     }
 
-    if (gitRelease) {
-      // TODO Support for automatically creating a release,
-      // e.g. when GITHUB_TOKEN is present in CI or using `gh release create`
-      // from GitHub CLI.
+    final repository = workspace.config.repository;
+    final release = workspace.config.commands.version.release;
 
-      final repository = workspace.config.repository;
+    // TODO Support other means of creating a release, e.g.
+    // using `gh release create` from GitHub CLI. and GitLab
 
-      if (repository == null) {
-        logger.trace('No repository configured in melos.yaml to generate a '
-            'release for.');
-      } else if (repository is! SupportsManualRelease) {
-        logger.trace('Hosted repository does not support releases');
-      } else {
-        final pendingPackageReleases = pendingPackageUpdates.map((update) {
-          return link(
-            _gitCreateReleaseUrl(repository, update),
-            update.package.name,
-          );
-        }).join(', ');
+    if (release.enabled && gitRelease == GitRelease.useDefault) {
+      final success = await _createAutomaticReleases(
+        repository: repository,
+        release: release,
+        pendingPackageUpdates: pendingPackageUpdates,
+      );
 
-        logger.stdout(
-          'Ensure you create a release for each package on GitHub:\n'
-          '$pendingPackageReleases',
+      if (!success) {
+        _createManualReleases(
+          repository: repository,
+          pendingPackageUpdates: pendingPackageUpdates,
         );
       }
+    } else if (gitRelease == GitRelease.manual ||
+        gitRelease == GitRelease.useDefault) {
+      _createManualReleases(
+        repository: repository,
+        pendingPackageUpdates: pendingPackageUpdates,
+      );
     }
   }
 
@@ -834,6 +834,119 @@ mixin _VersionMixin on _RunMixin {
       isPreRelease: isPreRelease,
     );
   }
+
+  Future<bool> _createAutomaticReleases({
+    required HostedGitRepository? repository,
+    required VersionReleaseCommandConfigs release,
+    required List<MelosPendingPackageUpdate> pendingPackageUpdates,
+  }) async {
+    if (repository == null) {
+      failOrWarnAutomaticRelease(
+        fail: release.failIfUnsupported,
+        message: 'No repository configured in melos.yaml to generate a release '
+            'for.',
+      );
+      return false;
+    }
+
+    if (release.enabled && repository is SupportsAutomaticRelease) {
+      final canCreateRelease = await repository.canCreateRelease();
+      if (canCreateRelease != null) {
+        failOrWarnAutomaticRelease(
+          fail: release.failIfUnsupported,
+          message: canCreateRelease,
+        );
+        return false;
+      }
+
+      for (final pendingPackageUpdate in pendingPackageUpdates) {
+        await _gitCreateRelease(
+          pendingPackageUpdate: pendingPackageUpdate,
+          repository: repository,
+          isDraft: release.draft,
+        );
+      }
+    }
+
+    return true;
+  }
+
+  bool _createManualReleases({
+    required HostedGitRepository? repository,
+    required List<MelosPendingPackageUpdate> pendingPackageUpdates,
+  }) {
+    if (repository == null) {
+      logger.trace(
+        'Skipping release url creation: No repository configured in melos.yaml '
+        'to generate a release for.',
+      );
+      return false;
+    }
+
+    if (repository is! SupportsManualRelease) {
+      logger.trace('Skipping release url creation: Repository does not support '
+          'generating release urls');
+      return false;
+    }
+
+    final pendingPackageReleases = pendingPackageUpdates.map((update) {
+      return link(
+        _gitCreateReleaseUrl(repository, update),
+        update.package.name,
+      );
+    }).join(', ');
+
+    logger.stdout(
+      'Ensure you create a release for each package on GitHub:\n'
+      '$pendingPackageReleases',
+    );
+
+    return true;
+  }
+
+  void failOrWarnAutomaticRelease({
+    required bool fail,
+    required String message,
+  }) {
+    if (fail) {
+      throw AutomaticReleaseUnsupportedException(message);
+    } else {
+      logger.warning(
+        'Skipping release creation: $message',
+      );
+    }
+  }
+
+  Future<void> _gitCreateRelease({
+    required SupportsAutomaticRelease repository,
+    required MelosPendingPackageUpdate pendingPackageUpdate,
+    required bool isDraft,
+  }) async {
+    final tag = gitTagForPackageVersion(
+      pendingPackageUpdate.package.name,
+      pendingPackageUpdate.nextVersion.toString(),
+    );
+    final title = gitReleaseTitleForPackageVersion(
+      pendingPackageUpdate.package.name,
+      pendingPackageUpdate.nextVersion.toString(),
+    );
+    final body = pendingPackageUpdate.changelog.markdown;
+    final isPreRelease = pendingPackageUpdate.nextVersion.isPreRelease;
+
+    final commit = await gitGetCurrentCommit(
+      workingDirectory: pendingPackageUpdate.package.path,
+      logger: logger,
+    );
+
+    return repository.createRelease(
+      tag: tag,
+      title: title,
+      body: body,
+      isPreRelease: isPreRelease,
+      commit: commit,
+      isDraft: isDraft,
+    );
+  }
 }
 
 class PackageNotFoundException extends MelosException {
@@ -844,6 +957,30 @@ class PackageNotFoundException extends MelosException {
   @override
   String toString() {
     return 'PackageNotFoundException: The package $packageName';
+  }
+}
+
+enum GitRelease {
+  useDefault,
+  auto,
+  manual,
+  none,
+}
+
+GitRelease gitReleaseFromString(String release) {
+  switch (release) {
+    case 'default':
+      return GitRelease.useDefault;
+    case 'manual':
+      return GitRelease.manual;
+    case 'none':
+      return GitRelease.none;
+    default:
+      throw ArgumentError.value(
+        release,
+        'release',
+        'Must be one of: default, manual, none',
+      );
   }
 }
 

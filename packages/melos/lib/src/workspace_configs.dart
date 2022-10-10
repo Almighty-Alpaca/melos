@@ -297,6 +297,7 @@ class VersionCommandConfigs {
     this.includeCommitId,
     this.workspaceChangelog = false,
     this.updateGitTagRefs = false,
+    this.release = VersionReleaseCommandConfigs.empty,
   });
 
   factory VersionCommandConfigs.fromYaml(Map<Object?, Object?> yaml) {
@@ -336,6 +337,12 @@ class VersionCommandConfigs {
       path: 'command/version',
     );
 
+    final releaseMap = assertKeyIsA<Map<Object?, Object?>?>(
+      key: 'release',
+      map: yaml,
+      path: 'command/version',
+    );
+
     return VersionCommandConfigs(
       branch: branch,
       message: message,
@@ -344,6 +351,7 @@ class VersionCommandConfigs {
       linkToCommits: linkToCommits,
       workspaceChangelog: workspaceChangelog ?? false,
       updateGitTagRefs: updateGitTagRefs ?? false,
+      release: VersionReleaseCommandConfigs.fromYaml(releaseMap ?? {}),
     );
   }
 
@@ -372,6 +380,9 @@ class VersionCommandConfigs {
 
   /// Whether to also update pubspec with git referenced packages.
   final bool updateGitTagRefs;
+
+  /// Whether to also update pubspec with git referenced packages.
+  final VersionReleaseCommandConfigs release;
 
   Map<String, Object?> toJson() {
     return {
@@ -419,6 +430,85 @@ VersionCommandConfigs(
   linkToCommits: $linkToCommits,
   workspaceChangelog: $workspaceChangelog,
   updateGitTagRefs: $updateGitTagRefs,
+)''';
+  }
+}
+
+/// Configurations for `melos version`.
+@immutable
+class VersionReleaseCommandConfigs {
+  const VersionReleaseCommandConfigs({
+    this.enabled = false,
+    this.draft = false,
+    this.failIfUnsupported = false,
+  });
+
+  factory VersionReleaseCommandConfigs.fromYaml(Map<Object?, Object?> yaml) {
+    final enabled = assertKeyIsA<bool?>(
+      key: 'enabled',
+      map: yaml,
+      path: 'command/version',
+    );
+    final draft = assertKeyIsA<bool?>(
+      key: 'draft',
+      map: yaml,
+      path: 'command/version',
+    );
+    final failIfUnsupported = assertKeyIsA<bool?>(
+      key: 'failIfUnsupported',
+      map: yaml,
+      path: 'command/version',
+    );
+
+    return VersionReleaseCommandConfigs(
+      enabled: enabled ?? false,
+      draft: draft ?? false,
+      failIfUnsupported: failIfUnsupported ?? false,
+    );
+  }
+
+  static const VersionReleaseCommandConfigs empty =
+      VersionReleaseCommandConfigs();
+
+  /// If true, `melos version` will create a release on supported repository
+  /// types.
+  final bool enabled;
+
+  // If true, the release will be created as a draft.
+  final bool draft;
+
+  // If true, `melos version` will fail if the repository type is not supported.
+  final bool failIfUnsupported;
+
+  Map<String, Object?> toJson() {
+    return {
+      'enabled': enabled,
+      'draft': draft,
+      'failIfUnsupported': failIfUnsupported,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is VersionReleaseCommandConfigs &&
+      other.enabled == enabled &&
+      other.draft == draft &&
+      other.failIfUnsupported == failIfUnsupported;
+
+  @override
+  int get hashCode =>
+      runtimeType.hashCode ^
+      enabled.hashCode ^
+      draft.hashCode ^
+      failIfUnsupported.hashCode;
+
+  @override
+  String toString() {
+    return '''
+VersionCommandConfigs(
+  enabled: $enabled,
+  draft: $draft,
+  failIfUnsupported: $failIfUnsupported,
 )''';
   }
 }

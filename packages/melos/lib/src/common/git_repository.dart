@@ -15,7 +15,13 @@
  *
  */
 
+import 'dart:async';
+import 'dart:io';
+
+import 'package:github/github.dart';
 import 'package:meta/meta.dart';
+
+import 'exception.dart';
 
 /// A hosted git repository.
 @immutable
@@ -45,9 +51,33 @@ mixin SupportsManualRelease on HostedGitRepository {
   });
 }
 
+mixin SupportsAutomaticRelease on HostedGitRepository {
+  Future<String?> canCreateRelease();
+
+  /// Create a new release
+  Future<void> createRelease({
+    required String? tag,
+    required String? title,
+    required String? body,
+    required bool? isPreRelease,
+    required String? commit,
+    required bool isDraft,
+  });
+}
+
+class AutomaticReleaseUnsupportedException extends MelosException {
+  AutomaticReleaseUnsupportedException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'Unable to create a release: $message';
+}
+
 /// A git repository, hosted by GitHub.
 @immutable
-class GitHubRepository extends HostedGitRepository with SupportsManualRelease {
+class GitHubRepository extends HostedGitRepository
+    with SupportsManualRelease, SupportsAutomaticRelease {
   const GitHubRepository({
     required this.owner,
     required this.name,
@@ -55,7 +85,7 @@ class GitHubRepository extends HostedGitRepository with SupportsManualRelease {
 
   factory GitHubRepository.fromUrl(Uri uri) {
     if (uri.scheme == 'https' && uri.host == 'github.com') {
-      final match = RegExp(r'^\/(.+)\/(.+)\/?$').firstMatch(uri.path);
+      final match = RegExp(r'^/(.+)/(.+)/?$').firstMatch(uri.path);
       if (match != null) {
         return GitHubRepository(
           owner: match.group(1)!,
@@ -97,6 +127,43 @@ class GitHubRepository extends HostedGitRepository with SupportsManualRelease {
         if (isPreRelease != null) 'prerelease': '$isPreRelease',
       },
     );
+  }
+
+  String? _getGithubToken() => Platform.environment['GITHUB_TOKEN'];
+
+  @override
+  Future<String?> canCreateRelease() async {
+    final githubToken = _getGithubToken();
+
+    if (githubToken?.isEmpty ?? true) {
+      return 'GITHUB_TOKEN environment variable is not set.';
+    } else {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> createRelease({
+    required String? tag,
+    required String? title,
+    required String? body,
+    required bool? isPreRelease,
+    required String? commit,
+    required bool isDraft,
+  }) async {
+    final github = GitHub(auth: Authentication.withToken(_getGithubToken()));
+    final repositorySlug = RepositorySlug(owner, name);
+
+    final createRelease = CreateRelease.from(
+      tagName: tag,
+      name: title,
+      body: body,
+      isPrerelease: isPreRelease,
+      targetCommitish: commit,
+      isDraft: isDraft,
+    );
+
+    await github.repositories.createRelease(repositorySlug, createRelease);
   }
 
   @override
