@@ -3,6 +3,36 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2022-10-12
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`melos` - `v2.8.0`](#melos---v280)
+
+---
+
+#### `melos` - `v2.8.0`
+
+ - **FIX**: only include normal dependencies of transitive dependencies ([#387](https://github.com/invertase/melos/issues/387)). ([e0659e97](https://github.com/invertase/melos/commit/e0659e976ad2d9eef90f611fa012a51e14880657))
+ - **FIX**: return type of `promptChoice` ([#391](https://github.com/invertase/melos/issues/391)). ([54004993](https://github.com/invertase/melos/commit/54004993c980a204533980508bb2c03b27fe45fc))
+ - **FEAT**: Implement creating URLs to prefilled GitHub release forms when executing `melos version`. ([1fd990b1](https://github.com/invertase/melos/commit/1fd990b1cc2c853c906737863f4ad52dfbd47d99))
+ - **FEAT**: add `--dependent-preid` option ([#388](https://github.com/invertase/melos/issues/388)). ([b6201364](https://github.com/invertase/melos/commit/b6201364dd951db39ab422b6baaa812cef8b83fd))
+ - **DOCS**: add `flutter_html` to projects using Melos ([#389](https://github.com/invertase/melos/issues/389)). ([4e3a4447](https://github.com/invertase/melos/commit/4e3a4447b41973eb4b779b096a0dbdfcf2a3188c))
+ - **DOCS**: add yak_packages reference to docs/index ([#381](https://github.com/invertase/melos/issues/381)). ([9b366fd9](https://github.com/invertase/melos/commit/9b366fd917792dbdde1ed59a51beefd46bb88c57))
+
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
 ## 2022-09-23
 
 ### Changes
